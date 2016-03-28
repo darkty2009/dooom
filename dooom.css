@@ -1,3 +1,7 @@
+* {
+    border:1px dotted rgba(230, 0, 0, 0.1) !important;
+}
+
 #dooom {
     position:fixed;
     width:100%;
@@ -5,4 +9,16 @@
     top:0;
     left:0;
     z-index:-1;
+}
+
+#dooom-score {
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    font-size:24px;
+    color:#d90000;
+    text-align: center;
+    z-index:9999999999;
+    border:0px !important;
 }

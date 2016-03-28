@@ -1,3 +1,14 @@
+var throttle = function(delay, action){
+    var last = 0;
+    return function(){
+        var curr = Date.now();
+        if (curr - last > delay){
+            action.apply(this, arguments)
+            last = curr;
+        }
+    }
+}
+
 var size = {
     width:window.innerWidth,
     height:window.innerHeight
@@ -5,7 +16,8 @@ var size = {
 var config = {
     speed:4,
     rotate:2,
-    bullet:10
+    bullet:10,
+    over:false
 };
 
 var canvas = document.getElementById('dooom');
@@ -29,6 +41,68 @@ function clear() {
     context.fillStyle="#fff";
     context.fillRect(0,0,size.width, size.height);
 }
+
+var score = {
+    init:function() {
+        this.number = 0;
+        if(!this.node) {
+            this.node = document.createElement('h1');
+            this.node.id = 'dooom-score';
+            this.node.innerText = this.number;
+            document.body.appendChild(this.node);
+        }
+    },
+    add:function(num) {
+        this.number += num;
+        this.node.innerText = this.number.toFixed(0);
+    },
+    over:function() {
+        config.over = true;
+        alert("你摧毁了" + window.title + "，最高分数：" + this.number);
+    },
+    destroy:function(element) {
+        if(element.id != 'dooom' && element.id != 'dooom-score') {
+            this.add(Math.sqrt(element.clientWidth * element.clientHeight));
+            element.parentNode.removeChild(element);
+            return true;
+        }
+        return false;
+    },
+    check:function(x, y) {
+        var checked = false;
+        var element = document.elementFromPoint(x, y);
+        element && (element.style.overflow = 'visible');
+        if(element && element.clientWidth && element.clientHeight) {
+            if(element.children.length) {
+                var isShow = Array.prototype.concat.apply([], element.children).some(function(child) {
+                    return child.clientWidth > 16 && child.clientHeight > 16;
+                });
+                if(!isShow) {
+                    checked = this.destroy(element);
+                }
+            }else {
+                checked = this.destroy(element);
+            }
+        }
+
+        var yet = Array.prototype.concat.apply([], document.body.children).some(function(child) {
+            return child.tagName.toLowerCase() != 'script' &&
+                    child.tagName.toLowerCase() != 'link' &&
+                    child.tagName.toLowerCase() != 'style' &&
+                    child.id != 'dooom' &&
+                    child.id != 'dooom-score' &&
+                    child.clientWidth > 0 &&
+                    child.clientHeight > 0 &&
+                    child.style.display != 'none';
+        });
+
+        if(!yet) {
+            this.over();
+        }
+
+        return checked;
+    }
+};
 
 var Plane = function(shape) {
     this.x = 40;
@@ -56,17 +130,17 @@ Bullet.prototype = {
         context.beginPath();
         context.arc(this.x, this.y, this.radius, 0, Math.PI * 2, true);
         context.closePath();
+        context.fillStyle = '#d90000';
         context.fill();
         //context.rotate(-1 * this.rotate * Math.PI / 180);
     },
     border:function() {
-        this.boom();
-        if(this.x < 0 || this.y < 0 || this.x > size.width || this.y > size.height) {
+        if(this.x < 0 || this.y < 0 || this.x > size.width || this.y > size.height || this.boom()) {
             return true;
         }
     },
     boom:function() {
-
+        return score.check(this.x, this.y)
     }
 };
 
@@ -77,7 +151,10 @@ var bullets = {
         this.plane = plane;
     },
     shoot:function() {
-        this.create.throttle(120).call(this);
+        if(!this.throttle_shoot) {
+            this.throttle_shoot = throttle(120, this.create);
+        }
+        this.throttle_shoot();
     },
     create:function() {
         var bullet = new Bullet();
@@ -141,11 +218,16 @@ var KeyManager = {
 var Shape = shapes.plane;
 var plane = new Plane(new Shape());
 bullets.init(plane);
+score.init();
 
 
 KeyManager.start();
 
 function render() {
+    if(config.over) {
+        return;
+    }
+
     clear();
 
     // up38 Down40 Left37 Right39 Space32
@@ -173,3 +255,13 @@ function render() {
     requestAnimationFrame(render);
 }
 requestAnimationFrame(render);
+
+window.addEventListener('resize', function() {
+    size = {
+        width:window.innerWidth,
+        height:window.innerHeight
+    };
+
+    canvas.width = size.width;
+    canvas.height = size.height;
+});
